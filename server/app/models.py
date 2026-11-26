@@ -6,7 +6,7 @@ read results without any key mapping.
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 # Lifts the backend can analyse. Enabling bench or overhead press later
@@ -36,17 +36,7 @@ class Correction(CamelModel):
 
 
 class AnalysisResult(CamelModel):
-    overall_score: int = Field(ge=1, le=10)
     summary: str
     strengths: list[str] = Field(default_factory=list)
     corrections: list[Correction] = Field(default_factory=list)
     cues: list[str] = Field(default_factory=list)
-
-    @field_validator("overall_score", mode="before")
-    @classmethod
-    def round_score(cls, value: object) -> object:
-        """The model sometimes answers 7.5 or "7"; accept and round those."""
-        try:
-            return round(float(value))  # type: ignore[arg-type]
-        except (TypeError, ValueError):
-            return value

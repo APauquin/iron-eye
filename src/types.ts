@@ -26,7 +26,6 @@ export interface Correction {
 
 /** Shape returned by the backend's POST /api/analyze. */
 export interface AnalysisResult {
-  overallScore: number;
   summary: string;
   strengths: string[];
   corrections: Correction[];

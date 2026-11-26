@@ -13,7 +13,6 @@ FRAME = "A" * 200  # stand-in for a base64 JPEG
 
 GOOD_REPLY = json.dumps(
     {
-        "overallScore": 7,
         "summary": "Solid depth, knees cave on the way up.",
         "strengths": ["Good depth"],
         "corrections": [
@@ -37,7 +36,8 @@ def test_analyze_returns_camel_case(monkeypatch):
 
     assert res.status_code == 200
     body = res.json()
-    assert body["overallScore"] == 7
+    assert "overallScore" not in body
+    assert body["summary"].startswith("Solid depth")
     assert body["corrections"][0]["bodyParts"] == ["femur", "shin"]
 
 
@@ -66,11 +66,14 @@ def test_parse_strips_markdown_fences():
     assert result.corrections[0].body_parts == ["femur", "shin"]
 
 
-def test_parse_rounds_float_score():
-    assert parse_result(GOOD_REPLY.replace('"overallScore": 7,', '"overallScore": 7.6,')).overall_score == 8
+BAD_REPLIES = [
+    "no json here",
+    '{"strengths": ["missing summary"]}',
+    '{"summary": "x", "corrections": [{"issue": "a", "fix": "b", "bodyParts": ["elbow"]}]}',
+]
 
 
-@pytest.mark.parametrize("bad", ["no json here", '{"overallScore": 7}', '{"overallScore": 42, "summary": "x"}'])
+@pytest.mark.parametrize("bad", BAD_REPLIES)
 def test_parse_rejects_bad_replies(bad):
     with pytest.raises(AnalysisError):
         parse_result(bad)

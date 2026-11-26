@@ -1,6 +1,6 @@
 # Iron Eye
 
-AI form coach for barbell lifts. Film a squat or deadlift, trim it to one rep, and get a form score, prioritized corrections and coaching cues, with a pose skeleton drawn over key frames and problem areas highlighted in red.
+AI form coach for barbell lifts. Film a squat or deadlift, trim it to one rep, and get a coach summary, prioritized corrections and coaching cues, with a pose skeleton drawn over key frames and problem areas highlighted in red.
 
 ## How it works
 
@@ -15,7 +15,7 @@ POST /api/analyze { lift, frames }  ───────▶  validate request (
                                               call Claude (vision)
                                               log tokens + cost
                                               validate reply (Pydantic)
-render score, skeletons, cues  ◀────────────  JSON result
+render summary, skeletons    ◀────────────  JSON result
 ```
 
 The Anthropic API key and the prompt live only on the server, never in the browser.
@@ -33,7 +33,7 @@ The Anthropic API key and the prompt live only on the server, never in the brows
 src/
   IronEye.tsx          app flow and state
   screens/             Select, Upload, Analysing, Results
-  components/          VideoTrimmer, SkeletonOverlay, Modal, ScoreRing, ...
+  components/          VideoTrimmer, SkeletonOverlay, Modal, ...
   lib/                 frame extraction, pose detection, API client
   config/lifts.ts      lift definitions, filming guidelines, limits
 server/

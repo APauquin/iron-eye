@@ -1,4 +1,3 @@
-import ScoreRing from "../components/ScoreRing.tsx";
 import SectionLabel from "../components/SectionLabel.tsx";
 import Shell from "../components/Shell.tsx";
 import SkeletonOverlay from "../components/SkeletonOverlay.tsx";
@@ -29,10 +28,11 @@ export default function ResultsScreen({ lift, result, frames, poses, onAnalyseAn
       <TopBar lift={lift} onBack={onAnalyseAnother} />
 
       <div className="scroll" style={{ flex: 1, padding: "20px 18px 40px" }}>
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <p style={{ fontSize: 10, color: "#444", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 18 }}>Form score</p>
-          <ScoreRing score={result.overallScore} colour={lift.colour} />
-          <p style={{ fontSize: 14, color: "#777", lineHeight: 1.65, maxWidth: 330, margin: "0 auto" }}>{result.summary}</p>
+        <div style={{ marginBottom: 24 }}>
+          <SectionLabel colour={lift.colour} icon="ti-message-circle">
+            Coach summary
+          </SectionLabel>
+          <p style={{ fontSize: 14, color: "#B8B8B8", lineHeight: 1.65 }}>{result.summary}</p>
         </div>
 
         {divider}
