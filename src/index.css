@@ -1,0 +1,87 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #080808;
+  color: #f0f0f0;
+  font-family: "Barlow", sans-serif;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Lift picker */
+.lift-card {
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.lift-card:active {
+  transform: scale(0.97);
+}
+
+/* Upload drop zone (--accent is set by the Shell component) */
+.dropzone {
+  transition: border-color 0.15s, background 0.15s;
+}
+.dropzone:hover,
+.dropzone.over {
+  border-color: var(--accent) !important;
+  background: color-mix(in srgb, var(--accent) 6%, transparent) !important;
+}
+
+/* Buttons */
+.btn-main {
+  transition: opacity 0.15s, transform 0.1s;
+}
+.btn-main:active {
+  transform: scale(0.98);
+}
+.btn-sec {
+  transition: background 0.15s;
+}
+.btn-sec:hover {
+  background: #1a1a1a !important;
+}
+
+/* Analysing screen */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.dot {
+  animation: blink 1.3s infinite;
+}
+.dot:nth-child(2) {
+  animation-delay: 0.22s;
+}
+.dot:nth-child(3) {
+  animation-delay: 0.44s;
+}
+
+/* Results */
+.scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.frame-card {
+  scroll-snap-align: center;
+  flex-shrink: 0;
+}
+.frame-strip::-webkit-scrollbar {
+  display: none;
+}
