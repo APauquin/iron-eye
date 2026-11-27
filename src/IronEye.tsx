@@ -1,15 +1,18 @@
 import { useState } from "react";
 import { FRAME_COUNT, MAX_CLIP_SECONDS, MIN_CLIP_SECONDS } from "./config/lifts.ts";
-import { analyseFrames } from "./lib/api.ts";
-import { extractFrames } from "./lib/frames.ts";
-import { detectPose, getPoseLandmarker } from "./lib/pose.ts";
+import { analyseFrames, analyseMotion } from "./lib/api.ts";
+import { captureClip } from "./lib/frames.ts";
+import { getPoseLandmarker } from "./lib/pose.ts";
+import { loadHeightCm, saveHeightCm } from "./lib/storage.ts";
 import AnalysingScreen from "./screens/AnalysingScreen.tsx";
 import ResultsScreen from "./screens/ResultsScreen.tsx";
 import SelectScreen from "./screens/SelectScreen.tsx";
 import UploadScreen from "./screens/UploadScreen.tsx";
-import type { AnalysisResult, Lift, Pose, Step, TrimWindow, VideoFile } from "./types.ts";
+import type { AnalysisResult, ClipCapture, Lift, MotionResult, Step, TrimWindow, VideoFile } from "./types.ts";
 
 const EMPTY_TRIM: TrimWindow = { start: 0, end: 0, duration: 0 };
+
+const messageOf = (reason: unknown) => (reason instanceof Error ? reason.message : "Something went wrong — please try again.");
 
 /** Top-level flow: select lift → upload & trim → analyse → results. */
 export default function IronEye() {
@@ -17,9 +20,12 @@ export default function IronEye() {
   const [lift, setLift] = useState<Lift | null>(null);
   const [video, setVideo] = useState<VideoFile | null>(null);
   const [trim, setTrim] = useState<TrimWindow>(EMPTY_TRIM);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [frames, setFrames] = useState<string[]>([]);
-  const [poses, setPoses] = useState<Pose[]>([]);
+  const [heightCm, setHeightCm] = useState<number | null>(loadHeightCm);
+  const [capture, setCapture] = useState<ClipCapture | null>(null);
+  const [motion, setMotion] = useState<MotionResult | null>(null);
+  const [motionError, setMotionError] = useState<string | null>(null);
+  const [coach, setCoach] = useState<AnalysisResult | null>(null);
+  const [coachError, setCoachError] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +42,11 @@ export default function IronEye() {
     setTrim(EMPTY_TRIM);
   };
 
+  const changeHeight = (value: number | null) => {
+    setHeightCm(value);
+    saveHeightCm(value);
+  };
+
   const analyse = async () => {
     if (!video || !lift) return;
     const clipLength = trim.end - trim.start;
@@ -45,27 +56,39 @@ export default function IronEye() {
     setError(null);
     setStep("analysing");
     try {
-      setStatus("Extracting frames from your clip…");
-      const extracted = await extractFrames(video.file, FRAME_COUNT, trim.start, trim.end);
+      setStatus("Loading the pose model…");
+      const captured = await captureClip(video.file, trim.start, trim.end, FRAME_COUNT, (done, total) =>
+        setStatus(`Tracking your lift · frame ${done} of ${total}`),
+      );
 
-      setStatus("Detecting body positions & analysing form…");
-      const [detected, analysis] = await Promise.all([Promise.all(extracted.map(detectPose)), analyseFrames(extracted, lift.id)]);
+      setStatus("Measuring bar speed & getting coach notes…");
+      const [motionOutcome, coachOutcome] = await Promise.allSettled([
+        analyseMotion(captured, lift.id, heightCm),
+        analyseFrames(captured.keyFrames, lift.id),
+      ]);
 
-      setFrames(extracted);
-      setPoses(detected);
-      setResult(analysis);
+      if (motionOutcome.status === "rejected" && coachOutcome.status === "rejected") {
+        throw motionOutcome.reason;
+      }
+      setCapture(captured);
+      setMotion(motionOutcome.status === "fulfilled" ? motionOutcome.value : null);
+      setMotionError(motionOutcome.status === "rejected" ? messageOf(motionOutcome.reason) : null);
+      setCoach(coachOutcome.status === "fulfilled" ? coachOutcome.value : null);
+      setCoachError(coachOutcome.status === "rejected" ? messageOf(coachOutcome.reason) : null);
       setStep("results");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Analysis failed — please try again.");
+      setError(messageOf(err));
       setStep("upload");
     }
   };
 
   const analyseAnother = () => {
     changeFile(null);
-    setResult(null);
-    setFrames([]);
-    setPoses([]);
+    setCapture(null);
+    setMotion(null);
+    setMotionError(null);
+    setCoach(null);
+    setCoachError(null);
     setStep("upload");
   };
 
@@ -80,8 +103,19 @@ export default function IronEye() {
 
   if (step === "analysing") return <AnalysingScreen lift={lift} status={status} />;
 
-  if (step === "results" && result) {
-    return <ResultsScreen lift={lift} result={result} frames={frames} poses={poses} onAnalyseAnother={analyseAnother} onChangeLift={reset} />;
+  if (step === "results" && capture) {
+    return (
+      <ResultsScreen
+        lift={lift}
+        capture={capture}
+        motion={motion}
+        motionError={motionError}
+        coach={coach}
+        coachError={coachError}
+        onAnalyseAnother={analyseAnother}
+        onChangeLift={reset}
+      />
+    );
   }
 
   return (
@@ -89,9 +123,11 @@ export default function IronEye() {
       lift={lift}
       video={video}
       trim={trim}
+      heightCm={heightCm}
       error={error}
       onFileChange={changeFile}
       onTrimChange={setTrim}
+      onHeightChange={changeHeight}
       onError={setError}
       onAnalyse={analyse}
       onBack={reset}

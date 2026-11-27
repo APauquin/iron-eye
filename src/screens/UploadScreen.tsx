@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { DragEvent } from "react";
 import GuidelineList from "../components/GuidelineList.tsx";
+import HeightInput from "../components/HeightInput.tsx";
 import Modal from "../components/Modal.tsx";
 import Shell from "../components/Shell.tsx";
 import TopBar from "../components/TopBar.tsx";
@@ -13,15 +14,29 @@ interface UploadScreenProps {
   lift: Lift;
   video: VideoFile | null;
   trim: TrimWindow;
+  heightCm: number | null;
   error: string | null;
   onFileChange: (file: File | null) => void;
   onTrimChange: (trim: TrimWindow) => void;
+  onHeightChange: (value: number | null) => void;
   onError: (message: string | null) => void;
   onAnalyse: () => void;
   onBack: () => void;
 }
 
-export default function UploadScreen({ lift, video, trim, error, onFileChange, onTrimChange, onError, onAnalyse, onBack }: UploadScreenProps) {
+export default function UploadScreen({
+  lift,
+  video,
+  trim,
+  heightCm,
+  error,
+  onFileChange,
+  onTrimChange,
+  onHeightChange,
+  onError,
+  onAnalyse,
+  onBack,
+}: UploadScreenProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
@@ -83,6 +98,7 @@ export default function UploadScreen({ lift, video, trim, error, onFileChange, o
             <>
               <VideoTrimmer src={video.url} colour={lift.colour} onChange={onTrimChange} />
               <InfoBox lift={lift} />
+              <HeightInput value={heightCm} colour={lift.colour} onChange={onHeightChange} />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 4px", fontSize: 12, color: "#666" }}>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "65%" }}>
                   <i className="ti ti-file-check" style={{ marginRight: 6, color: lift.colour }} aria-hidden="true" />

@@ -1,124 +1,126 @@
+import BarPathChart from "../components/BarPathChart.tsx";
+import MotionMetrics from "../components/MotionMetrics.tsx";
 import SectionLabel from "../components/SectionLabel.tsx";
 import Shell from "../components/Shell.tsx";
 import SkeletonOverlay from "../components/SkeletonOverlay.tsx";
 import TopBar from "../components/TopBar.tsx";
+import VelocityChart from "../components/VelocityChart.tsx";
 import { BODY_PARTS, PRIORITY_STYLES } from "../config/lifts.ts";
 import { COLOURS, FONT_DISPLAY } from "../theme.ts";
-import type { AnalysisResult, BodyPart, Correction, Lift, Pose } from "../types.ts";
+import type { ReactNode } from "react";
+import type { AnalysisResult, BodyPart, ClipCapture, Correction, Lift, MotionResult, Pose } from "../types.ts";
 
 interface ResultsScreenProps {
   lift: Lift;
-  result: AnalysisResult;
-  frames: string[];
-  poses: Pose[];
+  capture: ClipCapture;
+  motion: MotionResult | null;
+  motionError: string | null;
+  coach: AnalysisResult | null;
+  coachError: string | null;
   onAnalyseAnother: () => void;
   onChangeLift: () => void;
 }
 
-const divider = <div style={{ width: "100%", height: 1, background: "#161616", marginBottom: 22 }} />;
+const divider = <div style={{ width: "100%", height: 1, background: "#161616", margin: "4px 0 22px" }} />;
 
-export default function ResultsScreen({ lift, result, frames, poses, onAnalyseAnother, onChangeLift }: ResultsScreenProps) {
+export default function ResultsScreen({ lift, capture, motion, motionError, coach, coachError, onAnalyseAnother, onChangeLift }: ResultsScreenProps) {
   const problemParts = new Set<BodyPart>(
-    result.corrections.flatMap((c) => c.bodyParts).filter((part) => BODY_PARTS.includes(part)),
+    (coach?.corrections ?? []).flatMap((c) => c.bodyParts).filter((part) => BODY_PARTS.includes(part)),
   );
-  const corrections = [...result.corrections].sort((a, b) => PRIORITY_STYLES[a.priority].order - PRIORITY_STYLES[b.priority].order);
+  const corrections = [...(coach?.corrections ?? [])].sort((a, b) => PRIORITY_STYLES[a.priority].order - PRIORITY_STYLES[b.priority].order);
+  const notices = [...(motion?.warnings ?? []), ...(motionError ? [motionError] : [])];
 
   return (
     <Shell accent={lift.colour}>
       <TopBar lift={lift} onBack={onAnalyseAnother} />
 
       <div className="scroll" style={{ flex: 1, padding: "20px 18px 40px" }}>
-        <div style={{ marginBottom: 24 }}>
-          <SectionLabel colour={lift.colour} icon="ti-message-circle">
-            Coach summary
-          </SectionLabel>
-          <p style={{ fontSize: 14, color: "#B8B8B8", lineHeight: 1.65 }}>{result.summary}</p>
-        </div>
+        {notices.length > 0 && <Notices messages={notices} />}
 
-        {divider}
+        {motion && (
+          <>
+            <Section colour={lift.colour} icon="ti-gauge" title="Bar speed">
+              <MotionMetrics motion={motion} isSquat={lift.id === "squat"} />
+            </Section>
+            <Section colour={lift.colour} icon="ti-chart-line" title="Speed over time">
+              <VelocityChart motion={motion} colour={lift.colour} />
+            </Section>
+            <Section colour={lift.colour} icon="ti-route" title="Bar path">
+              <BarPathChart motion={motion} colour={lift.colour} />
+            </Section>
+            <p style={{ fontSize: 11, color: "#555", lineHeight: 1.5, marginBottom: 22 }}>
+              Measured locally from {motion.series.t.length} frames, tracking your {motion.side} hand as the bar. Most accurate when filmed from the
+              side with a still camera.
+            </p>
+            {divider}
+          </>
+        )}
 
-        {frames.length > 0 && (
-          <div style={{ marginBottom: 24 }}>
-            <SectionLabel colour={lift.colour} icon="ti-camera">
-              Frame analysis
-            </SectionLabel>
+        {capture.keyFrames.length > 0 && (
+          <Section colour={lift.colour} icon="ti-camera" title="Key frames">
             <Legend />
-            <FrameStrip frames={frames} poses={poses} problemParts={problemParts} />
-            {problemParts.size > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
-                {[...problemParts].map((part) => (
-                  <span
-                    key={part}
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      color: COLOURS.badText,
-                      background: "#FF3B3018",
-                      border: "1px solid #FF3B3030",
-                      padding: "3px 8px",
-                      borderRadius: 4,
-                    }}
-                  >
-                    {part}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+            <FrameStrip frames={capture.keyFrames} poses={capture.keyPoses} problemParts={problemParts} width={capture.width} height={capture.height} />
+          </Section>
         )}
 
         {divider}
 
-        {result.strengths.length > 0 && (
+        {coachError && (
           <div style={{ marginBottom: 22 }}>
-            <SectionLabel colour={COLOURS.good} icon="ti-circle-check">
-              Strengths
+            <SectionLabel colour="#888" icon="ti-message-off">
+              Coach notes unavailable
             </SectionLabel>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {result.strengths.map((strength) => (
-                <div
-                  key={strength}
-                  style={{ background: "#22C55E0e", border: "1px solid #22C55E1a", borderRadius: 10, padding: "10px 13px", fontSize: 13, color: "#E0E0E0", lineHeight: 1.5 }}
-                >
-                  {strength}
+            <p style={{ fontSize: 13, color: "#777", lineHeight: 1.5 }}>{coachError} The measurements above don't depend on the AI.</p>
+          </div>
+        )}
+
+        {coach && (
+          <>
+            <Section colour={lift.colour} icon="ti-message-circle" title="Coach summary">
+              <p style={{ fontSize: 14, color: "#B8B8B8", lineHeight: 1.65 }}>{coach.summary}</p>
+            </Section>
+
+            {coach.strengths.length > 0 && (
+              <Section colour={COLOURS.good} icon="ti-circle-check" title="Strengths">
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {coach.strengths.map((strength) => (
+                    <div
+                      key={strength}
+                      style={{ background: "#22C55E0e", border: "1px solid #22C55E1a", borderRadius: 10, padding: "10px 13px", fontSize: 13, color: "#E0E0E0", lineHeight: 1.5 }}
+                    >
+                      {strength}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              </Section>
+            )}
 
-        {corrections.length > 0 && (
-          <div style={{ marginBottom: 22 }}>
-            <SectionLabel colour={COLOURS.badText} icon="ti-alert-triangle">
-              Fix these
-            </SectionLabel>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {corrections.map((correction) => (
-                <CorrectionCard key={correction.issue} correction={correction} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {result.cues.length > 0 && (
-          <div style={{ marginBottom: 28 }}>
-            <SectionLabel colour={lift.colour} icon="ti-target">
-              Coaching cues
-            </SectionLabel>
-            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-              {result.cues.map((cue, i) => (
-                <div key={cue} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  <span style={{ fontFamily: FONT_DISPLAY, fontSize: 20, color: lift.colour, lineHeight: 1.2, flexShrink: 0, width: 20, textAlign: "center" }}>{i + 1}</span>
-                  <span style={{ fontSize: 13, color: "#D0D0D0", lineHeight: 1.6 }}>{cue}</span>
+            {corrections.length > 0 && (
+              <Section colour={COLOURS.badText} icon="ti-alert-triangle" title="Fix these">
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {corrections.map((correction) => (
+                    <CorrectionCard key={correction.issue} correction={correction} />
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
+              </Section>
+            )}
+
+            {coach.cues.length > 0 && (
+              <Section colour={lift.colour} icon="ti-target" title="Coaching cues">
+                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                  {coach.cues.map((cue, i) => (
+                    <div key={cue} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                      <span style={{ fontFamily: FONT_DISPLAY, fontSize: 20, color: lift.colour, lineHeight: 1.2, flexShrink: 0, width: 20, textAlign: "center" }}>{i + 1}</span>
+                      <span style={{ fontSize: 13, color: "#D0D0D0", lineHeight: 1.6 }}>{cue}</span>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
+          </>
         )}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 6 }}>
           <button
             onClick={onAnalyseAnother}
             style={{ background: lift.colour, color: "#fff", border: "none", borderRadius: 14, padding: 17, fontFamily: FONT_DISPLAY, fontSize: 21, letterSpacing: "0.08em", cursor: "pointer" }}
@@ -138,6 +140,33 @@ export default function ResultsScreen({ lift, result, frames, poses, onAnalyseAn
   );
 }
 
+function Section({ colour, icon, title, children }: { colour: string; icon: string; title: string; children: ReactNode }) {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <SectionLabel colour={colour} icon={icon}>
+        {title}
+      </SectionLabel>
+      {children}
+    </div>
+  );
+}
+
+function Notices({ messages }: { messages: string[] }) {
+  return (
+    <div
+      role="status"
+      style={{ background: "#F59E0B12", border: "1px solid #F59E0B35", borderRadius: 12, padding: "11px 14px", marginBottom: 22, display: "flex", flexDirection: "column", gap: 6 }}
+    >
+      {messages.map((message) => (
+        <div key={message} style={{ display: "flex", gap: 8, fontSize: 12, color: "#E8C27A", lineHeight: 1.45 }}>
+          <i className="ti ti-alert-circle" style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
+          <span>{message}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Legend() {
   const swatch = (colour: string, label: string) => (
     <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -152,17 +181,27 @@ function Legend() {
   );
 }
 
-function FrameStrip({ frames, poses, problemParts }: { frames: string[]; poses: Pose[]; problemParts: Set<BodyPart> }) {
+interface FrameStripProps {
+  frames: string[];
+  poses: Pose[];
+  problemParts: Set<BodyPart>;
+  width: number;
+  height: number;
+}
+
+function FrameStrip({ frames, poses, problemParts, width, height }: FrameStripProps) {
   const total = String(frames.length).padStart(2, "0");
+  // Show each frame at its real shape so the skeleton overlay lines up with the body.
+  const cardWidth = height >= width ? 200 : 300;
   return (
     <div
       className="frame-strip"
       style={{ display: "flex", gap: 10, overflowX: "auto", scrollSnapType: "x mandatory", margin: "0 -18px", padding: "0 18px", scrollbarWidth: "none" }}
     >
       {frames.map((frame, i) => (
-        <div key={i} className="frame-card" style={{ width: 220, borderRadius: 12, overflow: "hidden", border: `1px solid ${COLOURS.border}`, background: COLOURS.surface }}>
-          <div style={{ position: "relative", aspectRatio: "9/16", background: "#000" }}>
-            <img src={`data:image/jpeg;base64,${frame}`} alt={`Frame ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        <div key={i} className="frame-card" style={{ width: cardWidth, borderRadius: 12, overflow: "hidden", border: `1px solid ${COLOURS.border}`, background: COLOURS.surface }}>
+          <div style={{ position: "relative", aspectRatio: `${width} / ${height}`, background: "#000" }}>
+            <img src={`data:image/jpeg;base64,${frame}`} alt={`Frame ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "fill", display: "block" }} />
             <SkeletonOverlay pose={poses[i] ?? null} problemParts={problemParts} />
             <div
               style={{

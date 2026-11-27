@@ -45,3 +45,38 @@ export interface VideoFile {
   file: File;
   url: string;
 }
+
+/** Per-frame pose data captured from the whole trimmed clip. */
+export interface ClipCapture {
+  timestamps: number[];
+  /** 33 landmarks per frame as [x, y, visibility], or null when nobody was detected. */
+  poses: (number[][] | null)[];
+  width: number;
+  height: number;
+  /** Evenly spaced JPEG frames (base64) for the results strip and the AI coach. */
+  keyFrames: string[];
+  keyPoses: Pose[];
+}
+
+/** Bar path and speed, computed locally by the backend from the pose data. */
+export interface MotionResult {
+  calibrated: boolean;
+  side: "left" | "right";
+  detectionRate: number;
+  fps: number;
+  warnings: string[];
+  series: { t: number[]; x: number[]; y: number[]; v: number[] };
+  phases: { concentricStart: number; concentricEnd: number; descentStart: number | null; bottom: number | null };
+  metrics: {
+    romCm: number | null;
+    concentricS: number;
+    meanVelocity: number | null;
+    peakVelocity: number | null;
+    peakVelocityT: number;
+    stickingPointT: number | null;
+    stickingPointHeightCm: number | null;
+    maxDriftCm: number | null;
+    descentS: number | null;
+    descentVelocity: number | null;
+  };
+}
