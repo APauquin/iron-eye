@@ -38,3 +38,4 @@ venv/
 
 # Local usage log (tokens and cost per analysis)
 server/usage.jsonl
+startup-notes.txt
